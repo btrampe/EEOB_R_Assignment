@@ -1,0 +1,208 @@
+---
+title: "R Notebook - Benjamin Trampe"
+output: html_notebook
+---
+Gets current working directory.
+```{r}
+getwd()
+```
+Create a folder called R_Assignment.
+Download genotype files called "fang_et_al_genotypes.txt" and "snp_position.txt"
+Setting working directory to the folder that was just created call R_Assignment.
+```{r}
+setwd("~/R_Assignment")
+```
+A function to install the require the R packages if not already present for the assignment.
+```{r}
+installingpackages <- function(x){
+  for( i in x ){
+    if( ! require( i , character.only = TRUE ) ){
+      install.packages( i , dependencies = TRUE)
+      require( i , character.only = TRUE )
+    }
+  }
+}
+installingpackages( c("tidyr","dplyr","ggplot2" , "reshape2"  ) )
+```
+Loads all of the require packages. 
+```{r}
+library(ggplot2)
+library(tidyr)
+library(plyr)
+library(dplyr)
+library(reshape2)
+```
+Loads the text files form the the data frame.
+```{r}
+genotype <- as.data.frame(read.table("fang_et_al_genotypes.txt", sep="\t",header=TRUE))
+snppos <- as.data.frame(read.table("snp_position.txt", sep="\t",header=TRUE))
+```
+Gets the file size for each file
+```{r}
+file.info("fang_et_al_genotypes.txt")$size
+file.info("snp_position.txt")$size
+```
+Gives the number of rows in each data frame.
+```{r}
+nrow(genotype)
+nrow(snppos)
+```
+Gives the number of columns in each data frame.
+```{r}
+ncol(genotype)
+ncol(snppos)
+```
+Gives the structure of the data frame. 
+```{r}
+str(genotype)
+str(snppos)
+```
+Sub setting the data to get a data frame for maize and teosinte based on the required groups
+```{r}
+maize <- genotype[which(genotype$Group=="ZMMIL" | genotype$Group =="ZMMLR" | genotype$Group == "ZMMMR"),]
+teosinte <-genotype[which(genotype$Group=="ZMPBA" | genotype$Group =="ZMPIL" | genotype$Group == "ZMPJA"),]
+```
+Views the files to verify the correct sub setting was completed
+```{r}
+View(maize)
+View(teosinte)
+```
+Sub setting the SNP Position to leave the required data of SNP_ID, Chromosome, and Position
+```{r}
+snp_sub <- select(snppos,SNP_ID,Chromosome,Position) 
+snp_sub$Chromosome[snp_sub$Chromosome == "unknown"] <- NA
+snp_sub$Chromosome[snp_sub$Chromosome == "multiple"] <- NA
+snp_sub$Position[snp_sub$Position == "unknown"] <- NA  
+snp_sub$Position[snp_sub$Position == "multiple"] <- NA 
+View(snp_sub)
+```
+Removes the Sample_ID,JD_OTU, and Group from the files and transposes the data frame. 
+```{r}
+maize_rm <- subset(maize, select=-c(Sample_ID,JG_OTU,Group))
+t_maize <- as.data.frame(t(maize_rm))
+View(t_maize)
+teosinte_rm <- subset(teosinte, select=-c(Sample_ID,JG_OTU,Group))
+t_teosinte <- as.data.frame(t(teosinte_rm))
+```
+Combine the SNP File and Gentoype File for Maize and Teosinte. 
+```{r}
+t_maize <- data.frame(SNP_ID = row.names(t_maize), t_maize)
+maize_snp_com <- merge(snp_sub,t_maize,by = "SNP_ID")
+t_teosinte <- data.frame(SNP_ID = row.names(t_teosinte), t_teosinte)
+teosinte_snp_com <- merge(snp_sub,t_teosinte,by = "SNP_ID")
+```
+Removes the markers that have unknown or multiple values in the columns of chromosome or position.
+```{r}
+maize_snp_fin <- na.omit(maize_snp_com)
+teosinte_snp_fin <- na.omit(teosinte_snp_com)
+```
+Order the positions in ascending order for Maize and Teosinte
+```{r}
+incr_maize<-maize_snp_fin[order(as.numeric(as.character(maize_snp_fin$Position))),]
+incr_teosinte<-teosinte_snp_fin[order(as.numeric(as.character(teosinte_snp_fin$Position))),]
+```
+Replaces the ? in the data frame
+```{r}
+incr_maize <- as.matrix(incr_maize)
+incr_maize[incr_maize=="?/?"]<-"?"
+incr_maize <- as.data.frame(incr_maize)
+incr_teosinte <- as.matrix(incr_teosinte)
+incr_teosinte[incr_teosinte=="?/?"]<-"?"
+incr_teosinte <- as.data.frame(incr_teosinte)
+```
+Writes files for increasing maize
+```{r}
+chr<-1:10
+for (i in chr){
+incr_maize<-incr_maize[incr_maize$Chromosome==i,]
+  write.csv(incr_maize,sprintf("Maize_Chr_%d_Increasing",i),row.names = F)
+}
+```
+Writes files for increasing teosinte
+```{r}
+chr<-1:10
+for (i in chr){
+incr_teosinte<-incr_teosinte[incr_teosinte$Chromosome==i,]
+  write.csv(incr_teosinte,sprintf("Teosinte_Chr_%d_Increasing",i),row.names = F)
+}
+```
+Order the positions in descending order for Maize and Teosinte
+```{r}
+decr_maize<-maize_snp_fin[order(-as.numeric(as.character(maize_snp_fin$Position))),]
+decr_teosinte<-teosinte_snp_fin[order(-as.numeric(as.character(teosinte_snp_fin$Position))),]
+```
+Replaces the ? in the data frame
+```{r}
+decr_maize <- as.matrix(decr_maize)
+decr_maize[decr_maize=="?/?"]<-"-"
+decr_maize <- as.data.frame(decr_maize)
+decr_teosinte <- as.matrix(decr_teosinte)
+decr_teosinte[decr_teosinte=="?/?"]<-"-"
+decr_teosinte <- as.data.frame(decr_teosinte)
+```
+Writes files for decreasing maize
+```{r}
+chr<-1:10
+for (i in chr){
+decr_maize<-decr_maize[decr_maize$Chromosome==i,]
+  write.csv(decr_maize,sprintf("Maize_Chr_%d_Decreasing",i),row.names = F)
+}
+```
+Writes files for decreasing teosinte
+```{r}
+chr<-1:10
+for (i in chr){
+ decr_teosinte<-decr_teosinte[decr_teosinte$Chromosome==i,]
+  write.csv(decr_teosinte,sprintf("teosinte_Chr_%d_Decreasing",i),row.names = F)
+}
+```
+
+
+Part 2
+
+Plot 1 The graph shows that ZMMLR, ZMPBA, and ZMMIL are the most important groups.
+
+```{r}
+
+ggplot(genotype, aes(Group)) + geom_bar()
+
+
+```
+
+
+```{r}
+maizeteosinte <- genotype[which(genotype$Group=="ZMMIL" | genotype$Group =="ZMMLR" | genotype$Group == "ZMMMR"| genotype$Group=="ZMPBA" | genotype$Group =="ZMPIL" | genotype$Group == "ZMPJA"),]
+maizeteosinte_rm <- subset(maizeteosinte, select=-c(Sample_ID,JG_OTU))
+t_maizeteosinte <- as.data.frame(t(maizeteosinte_rm))
+t_maizeteosinte <- data.frame(SNP_ID = row.names(t_maizeteosinte), t_maizeteosinte)
+maizeteosinte_snp_com <- merge(snp_sub,t_maizeteosinte,by = "SNP_ID")
+ggplot(maizeteosinte_snp_com, aes(Chromosome)) + geom_bar()
+```
+Plot2-
+
+```{r}
+genotype2 <- subset(genotype, select=-c(JG_OTU))
+genotype_calls <- melt(genotype2,id=c("Sample_ID","Group"))
+
+
+```
+Plots the SNPS on there respective chromosomes.
+```{r}
+ggplot(maizeteosinte_snp_com, aes(SNP_ID, Chromosome)) + geom_point()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

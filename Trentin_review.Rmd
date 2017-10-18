@@ -1,0 +1,78 @@
+#Review
+
+#Overall, all the steps in the assignment are well explained. The loop for creating separate files for each chrosome, both in ascending and descending order, worked just for the first chromosome. The reason for that is because the loop was outputing a file with the same name as the input file ("incr_maize"). This caused the input file to be overwritten after the first loop, creating a file with containing data of chromosome 1 only. If a different name is given to the output file, the code will create the desired output. However, the file created is not in comma separated values (.csv), as pretented. There are several things that led to this problem. I was not able to create a .csv file using the "sprintf" function. The "paste" function will work for this purpose. Another reason why a ".csv" file was not created was because the format of the output file needs to be specified in the paste function (i.e., ".csv"). The last reason was because a separator was not included. Below I pasted the original code and a functional version of it. Similar changes would fix the code for teosinte, and for creating files based on decreasing SNP position.
+
+#Code with problem
+```{r}
+chr<-1:10
+for (i in chr){
+incr_maize<-incr_maize[incr_maize$Chromosome==i,] #Input and output files have the same name.
+  write.csv(incr_maize,sprintf("Maize_Chr_%d_Increasing",i),row.names = F) #I was not able to make the sprintf work for this part of the code. The paste function would do the desired task. The format of the file and a form of separation need to be included in the paste function (e.g., ".csv", sep="").
+
+}
+```
+
+#Functional version
+```{r}
+```{r}
+chr<-1:10
+for (i in chr){
+temp_df<-incr_maize[incr_maize$Chromosome==i,]
+  write.csv(temp_df,paste("Maize_Chr_%d_Increasing",i,".csv",sep=""),row.names = F)
+}
+```
+
+#Ben was not able to create graphs that showed wether each loci was homozygous, heterozygous or had missing data, for each species and group. I pasted this part of of my for reference. 
+
+#Besides the aforementioned problems, everything seems right. 
+
+
+Part# 2
+
+#Transpose and merge original data
+```{r}
+library(dplyr)
+fang.transposed<-as.data.frame(t(fangetal))
+joined.data<-merge(snp_position, fang.transposed, by.x="SNP_ID",by.y="row.names",all=TRUE)
+```
+
+#Plot of SNPs per chromosome
+```{r}
+library(ggplot2)
+joined.data$Chromosome<-factor(joined.data$Chromosome, levels = c("1","2","3","4","5","6","7","8","9","10","unknown","multiple","NA"))
+ggplot(joined.data)+ geom_bar(aes(joined.data$Chromosome))+xlab("Chromosome") +ylab("Total Number of SNPs")
+```
+
+#Tidying the data
+```{r}
+library(reshape2)
+genotype.info <- colnames(fangetal)[-c(1:3)]
+fang.tidy<-melt(fangetal,measure.vars = genotype.info)
+```
+
+#Recoding missing data as NA
+```{r}
+fang.tidy[]<- lapply(fang.tidy, as.character)
+fang.tidy[fang.tidy=='?/?'] <- 'NA'
+```
+
+#Classifying Genotype SNPs as homozygotes or heterozygotes. Dataframe sorted based on Group and Species_ID
+```{r}
+library(plyr)
+fang.tidy$hom.het <- (fang.tidy$value=="A/A"|fang.tidy$value=="C/C"|fang.tidy$value=="G/G"|fang.tidy$value=="T/T")
+fang.class.sorted<-arrange(fang.tidy,Sample_ID,Group)
+counts <- ddply(fang.class.sorted,c("Sample_ID"),summarise,total_homozygous=sum(hom.het,na.rm=TRUE),total_heterozygous=sum(!hom.het,na.rm = TRUE), total_NA=sum(is.na(hom.het)))
+counts.combined<-melt(counts,measure.vars = c("total_homozygous","total_heterozygous","total_NA"))
+```
+
+#Ploting proportion of homozygous, heterozygous and missing sites per Species_ID
+```{r}
+ggplot(counts.combined,aes(x=Sample_ID,y=value,fill=variable))+geom_bar(stat="identity",position = "stack")
+```
+
+#Ploting proportion of homozygous, heterozygous and missing sites per Group
+```{r}
+counts.group<-ddply(fang.class.sorted,c("Group"),summarise,total_homozygous=sum(hom.het,na.rm=TRUE),total_heterozygous=sum(!hom.het,na.rm = TRUE), total_NA=sum(is.na(hom.het)))
+counts.group.combined<-melt(counts.group,measure.vars = c("total_homozygous","total_heterozygous","total_NA"))
+ggplot(counts.group.combined,aes(x=Group,y=value,fill=variable))+geom_bar(stat="identity",position = "stack")
+```
